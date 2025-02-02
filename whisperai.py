@@ -1,21 +1,29 @@
 import whisper
+import datetime
 
 model = whisper.load_model("base")
 
-# load audio and pad/trim it to fit 30 seconds
+# Load audio and process
 audio = whisper.load_audio("harvard.wav")
 audio = whisper.pad_or_trim(audio)
-
-# make log-Mel spectrogram and move to the same device as the model
 mel = whisper.log_mel_spectrogram(audio).to(model.device)
 
-# detect the spoken language
+# Detect language
 _, probs = model.detect_language(mel)
 print(f"Detected language: {max(probs, key=probs.get)}")
 
-# decode the audio
-options = whisper.DecodingOptions()
-result = whisper.decode(model, mel, options)
+# Transcribe with timestamps (for SRT)
+result = model.transcribe("harvard.wav")
 
-# print the recognized text
-print(result.text)
+# Save TXT file (raw text)
+with open("harvard.txt", "w", encoding="utf-8") as txt_file:
+    txt_file.write(result["text"])
+
+# Save SRT file (subtitles with timestamps)
+with open("harvard.srt", "w", encoding="utf-8") as srt_file:
+    for idx, segment in enumerate(result["segments"]):
+        start = datetime.timedelta(seconds=segment['start'])
+        end = datetime.timedelta(seconds=segment['end'])
+        srt_file.write(f"{idx+1}\n")
+        srt_file.write(f"{start}.000 --> {end}.000\n")
+        srt_file.write(f"{segment['text'].strip()}\n\n")
